@@ -1,0 +1,809 @@
+{
+  "name": "System Design",
+  "children": [
+    {
+      "name": "Fundamentals",
+      "children": [
+        {
+          "name": "Scalability",
+          "children": [
+            {
+              "name": "Vertical Scaling",
+              "notes": "Adding CPU, RAM, or disk to one machine. Simple, low-coordination, but bounded by single-machine ceiling and creates a SPOF. Common starting point for early-stage Postgres or MySQL deployments. Hits hard ceilings around 1-2TB RAM and ~100 cores."
+            },
+            {
+              "name": "Horizontal Scaling",
+              "notes": "Adding more machines and distributing load. Required for high-traffic systems. Introduces coordination, consistency, and partitioning complexity. Underpins all hyperscaler systems (Google, Netflix, Amazon)."
+            },
+            {
+              "name": "Shared-Memory vs Shared-Disk vs Shared-Nothing",
+              "notes": "DDIA Ch 2 architecture distinction. Shared-memory: one big SMP machine. Shared-disk: multiple nodes share storage (Oracle RAC, AWS Aurora). Shared-nothing: each node has its own CPU/RAM/disk and coordinates over the network (most modern distributed DBs). Only shared-nothing scales out indefinitely."
+            },
+            {
+              "name": "Principles for Scaling Workloads",
+              "notes": "Identify what is actually loaded: read-heavy vs write-heavy, hot keys, peak vs sustained QPS, fanout patterns. Different workloads scale via different techniques (read replicas, sharding, caching, queues)."
+            }
+          ]
+        },
+        {
+          "name": "Availability",
+          "children": [
+            {
+              "name": "Availability Fundamentals",
+              "notes": "Percentage of time system is operational and accessible. Achieved via redundancy, failover, eliminating SPOFs. Distinct from reliability (correctness)."
+            },
+            {
+              "name": "Nines and Downtime Math",
+              "notes": "99% allows 3.65 days/year of downtime, 99.9% allows 8.76 hours, 99.99% allows 52.6 minutes, 99.999% allows 5.26 minutes. Each additional nine costs exponentially more. Memorize for back-of-envelope estimation."
+            },
+            {
+              "name": "SLA, SLO, SLI",
+              "notes": "SLI is the measurement (actual uptime). SLO is the internal target (e.g., 99.95%). SLA is the contractual promise to customers (e.g., 99.9%) usually with penalties. Google SRE book is canonical reference. Most companies set SLO stricter than SLA to leave error budget."
+            },
+            {
+              "name": "Redundancy and Failover",
+              "notes": "Active-active vs active-passive. Hot standby (immediate takeover, more cost) vs warm standby (some delay) vs cold standby (manual). RTO = recovery time objective, RPO = recovery point objective (data loss tolerance)."
+            }
+          ]
+        },
+        {
+          "name": "Reliability and Fault Tolerance",
+          "children": [
+            {
+              "name": "Reliability Fundamentals",
+              "notes": "System performs correctly over time even when things go wrong. Includes fault tolerance, durability, consistent behaviour. DDIA distinguishes from availability: an available-but-incorrect system is unreliable."
+            },
+            {
+              "name": "High Availability vs Fault Tolerance",
+              "notes": "HA = quick recovery from failure (might lose seconds of data, brief downtime). FT = continues operating with no observable disruption (more expensive: HP NonStop, RAID, redundant flight computers). Most apps want HA, not full FT."
+            },
+            {
+              "name": "Hardware Faults",
+              "notes": "Disks fail (~2% annualized failure rate), RAM bit flips (especially without ECC), network cards fail. Independent failures are handled by redundancy, but at cloud scale correlated failures (rack, AZ, region outages) become a bigger threat. DDIA Ch 2."
+            },
+            {
+              "name": "Software Faults",
+              "notes": "Systematic failures: bugs, memory leaks, runaway feedback loops, cascading failures. Harder to handle than hardware because correlated across nodes. Classic example: 2012 Linux leap-second bug crashing many services simultaneously."
+            },
+            {
+              "name": "Human Errors and Reliability",
+              "notes": "Operator error is a leading cause of outages. Mitigations: well-designed APIs, sandboxing, automated testing, staged rollouts, easy rollback, observability, blameless post-mortems. SRE practice."
+            },
+            {
+              "name": "Single Point of Failure",
+              "notes": "Component whose failure brings down the whole system. Eliminated via redundancy. Common SPOFs: load balancers, primary databases, DNS, central auth services. Identifying SPOFs is a standard interview question."
+            }
+          ]
+        },
+        {
+          "name": "Performance Metrics",
+          "children": [
+            {
+              "name": "Latency vs Throughput vs Bandwidth",
+              "notes": "Latency = time per request, throughput = requests per unit time, bandwidth = max data rate. Independent: optimizing one does not necessarily help the others. Highway analogy: latency is travel time for one car, throughput is cars per hour, bandwidth is number of lanes."
+            },
+            {
+              "name": "Response Time vs Latency",
+              "notes": "Latency is the wait time. Response time = network latency + service time + queueing. Often used interchangeably but DDIA distinguishes: response time is what client sees, latency is the delay component."
+            },
+            {
+              "name": "Average, Median, and Percentiles (p50, p95, p99)",
+              "notes": "Never report only averages: they hide tail behaviour. p99 = 99th percentile, meaning 1% of requests are slower. Amazon famously optimizes for p99.9 because it represents the worst experience for the highest-value customers. Latency distributions are highly right-skewed."
+            },
+            {
+              "name": "Tail Latency",
+              "notes": "Latency at high percentiles (p99, p999). Tail amplification: in a service calling 100 backends in parallel, the slowest backend dominates user-perceived latency. Mitigations: hedged requests (send to multiple, take fastest), tied requests, request bypass."
+            }
+          ]
+        },
+        {
+          "name": "System Categories",
+          "children": [
+            {
+              "name": "OLTP vs OLAP",
+              "notes": "OLTP = Online Transaction Processing: small interactive transactions (e-commerce, banking) on indexed rows. OLAP = Online Analytical Processing: analytical scans across millions of rows (BI, data warehouse). Different storage layouts (row vs column), different DBs (Postgres vs Snowflake/BigQuery)."
+            },
+            {
+              "name": "Operational vs Analytical Systems",
+              "notes": "DDIA Ch 1 framing. Operational systems run the business in real time (handling user requests). Analytical systems answer business questions over historical data. Often physically separate, with ETL or CDC pipelines moving data between them."
+            },
+            {
+              "name": "Systems of Record vs Derived Data",
+              "notes": "System of record = canonical source (transactional DB). Derived data = caches, search indexes, materialized views, denormalized copies. Derived data can always be rebuilt from system of record; this principle simplifies operational reasoning."
+            }
+          ]
+        },
+        {
+          "name": "Maintainability",
+          "children": [
+            {
+              "name": "Operability",
+              "notes": "Make life easy for operations teams: good monitoring, automation, predictable behaviour, clear documentation, easy patching and config changes. DDIA Ch 2."
+            },
+            {
+              "name": "Simplicity",
+              "notes": "Manage complexity. Abstraction is the main tool. Distinguish accidental complexity (ad-hoc patches, special cases) from essential complexity (inherent to the problem). Fred Brooks, 'No Silver Bullet'."
+            },
+            {
+              "name": "Evolvability",
+              "notes": "Make change easy. Agile, TDD, refactoring, schema evolution. Systems live for years and requirements always change, so design for change."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Back-of-the-Envelope Estimation",
+      "children": [
+        {
+          "name": "Powers of Two",
+          "notes": "2^10 ~ 1KB, 2^20 ~ 1MB, 2^30 ~ 1GB, 2^40 ~ 1TB, 2^50 ~ 1PB. ASCII = 1 byte/char, Unicode UTF-8 up to 4 bytes/char. Memorize for storage estimation."
+        },
+        {
+          "name": "Latency Numbers Every Programmer Should Know",
+          "notes": "Jeff Dean's famous table. L1 cache ~1ns, L2 ~10ns, RAM ~100ns, SSD random read ~100us, network round-trip same DC ~500us, HDD seek ~10ms, cross-continent round-trip ~150ms. Heuristic: memory is fast, network is slow, disk is slower. Alex Xu Ch 2."
+        },
+        {
+          "name": "Availability Numbers",
+          "notes": "Common AWS SLAs: EC2 99.99%, S3 99.9%, RDS 99.95%. Multi-region composition: P(both down) = P(one down)^2 if independent. Five 9s (99.999%) is usually impossible at the application level."
+        },
+        {
+          "name": "QPS Estimation",
+          "notes": "Daily active users / 86400 seconds = avg QPS. Multiply by per-user request rate, then apply peak factor (~2-5x for spikes). Reference: Twitter ~150k tweet QPS, ~600k read QPS. Alex Xu Ch 2."
+        },
+        {
+          "name": "Storage Estimation",
+          "notes": "Per-record size x records/day x replication factor x retention years. Example: 500M tweets/day x 1KB x 3 replicas x 5 years ~ 2.7PB. Always include replication and retention."
+        },
+        {
+          "name": "Bandwidth Estimation",
+          "notes": "QPS x payload size = bandwidth. Often surprising: 100k QPS x 10KB = 1GB/s = 8Gbps. Network is often the bottleneck before CPU."
+        },
+        {
+          "name": "Cache Sizing",
+          "notes": "80/20 rule of thumb: 20% of data gets 80% of access. Size cache for the working set, not the full dataset. Memcached and Redis instances typically sized in tens to hundreds of GB."
+        },
+        {
+          "name": "Number of Servers Estimation",
+          "notes": "Total QPS / per-server QPS = server count. Add headroom (~30%) for spikes, deployments, and failures. Account for replication factor and read/write split."
+        }
+      ]
+    },
+    {
+      "name": "Architecture Styles",
+      "children": [
+        { "name": "Client-Server Architecture" },
+        { "name": "Monolithic Architecture" },
+        { "name": "Microservices Architecture" },
+        { "name": "Serverless Architecture" },
+        { "name": "Event-Driven Architecture" }
+      ]
+    },
+    {
+      "name": "Networking and Protocols",
+      "children": [
+        { "name": "OSI Model" },
+        { "name": "HTTP vs HTTPS" },
+        { "name": "TCP vs UDP" },
+        { "name": "TLS/SSL" },
+        { "name": "Synchronous vs Asynchronous Communication" },
+        {
+          "name": "Real-Time Communication",
+          "children": [
+            { "name": "WebSockets" },
+            { "name": "WebRTC" },
+            { "name": "Long Polling" },
+            { "name": "Server-Sent Events" },
+            { "name": "Webhooks" }
+          ]
+        },
+        {
+          "name": "RPC and APIs over the Wire",
+          "children": [
+            { "name": "RPC Fundamentals" },
+            { "name": "gRPC" },
+            { "name": "REST vs RPC" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "DNS and Routing",
+      "children": [
+        { "name": "DNS" },
+        { "name": "DNS Load Balancing" },
+        { "name": "Anycast Routing" }
+      ]
+    },
+    {
+      "name": "Load Balancing and Proxies",
+      "children": [
+        { "name": "Load Balancing" },
+        {
+          "name": "Load Balancing Algorithms",
+          "children": [
+            { "name": "Round Robin" },
+            { "name": "Least Connections" },
+            { "name": "Weighted Round Robin" },
+            { "name": "IP Hash" },
+            { "name": "Least Response Time" }
+          ]
+        },
+        { "name": "Proxy vs Reverse Proxy" },
+        { "name": "API Gateway" }
+      ]
+    },
+    {
+      "name": "Caching",
+      "children": [
+        { "name": "Caching Fundamentals" },
+        { "name": "Cache Invalidation" },
+        {
+          "name": "Cache Eviction Policies",
+          "children": [
+            { "name": "LRU" },
+            { "name": "LFU" },
+            { "name": "FIFO" },
+            { "name": "TTL" }
+          ]
+        },
+        { "name": "Distributed Cache" },
+        { "name": "Cache Stampede" },
+        { "name": "Cache Warming" },
+        { "name": "CDN" }
+      ]
+    },
+    {
+      "name": "Databases",
+      "children": [
+        {
+          "name": "Database Fundamentals",
+          "notes": "Organized data with CRUD via DBMS. Handles concurrency, integrity, durability via transactions. Choice between relational and various non-relational types depends on data model, scale, and consistency needs."
+        },
+        {
+          "name": "SQL vs NoSQL",
+          "notes": "SQL: tables, rows, schemas, ACID, joins (Postgres, MySQL, SQLite). NoSQL types: KV (Redis, DynamoDB), document (MongoDB), wide-column (Cassandra, HBase), graph (Neo4j). Most production systems use both: SQL for transactional core, NoSQL for specific scale or flexibility needs."
+        },
+        {
+          "name": "ACID vs BASE",
+          "notes": "ACID = Atomicity, Consistency, Isolation, Durability (relational ideal). BASE = Basically Available, Soft state, Eventual consistency (NoSQL/distributed pragma). Tradeoff is strict guarantees vs scalability."
+        },
+        {
+          "name": "Data Models",
+          "children": [
+            {
+              "name": "Relational Model",
+              "notes": "Tables, rows, columns from Codd's 1970 paper. Joins handle relationships. Best for structured data with complex queries and many-to-many relationships. Postgres, MySQL, SQLite, Oracle."
+            },
+            {
+              "name": "Document Model",
+              "notes": "Hierarchical JSON/BSON documents. Better locality (one fetch retrieves the entire document), schema flexibility, natural fit for tree-shaped data. Worse for many-to-many relationships. MongoDB, CouchDB, AWS DocumentDB."
+            },
+            {
+              "name": "Object-Relational Mismatch",
+              "notes": "OOP objects vs flat relational tables: nested structures, inheritance, lists do not map cleanly. ORMs (Hibernate, ActiveRecord, SQLAlchemy) bridge with leaky abstractions. Document DBs reduce mismatch for nested data. DDIA Ch 3."
+            },
+            {
+              "name": "Normalization vs Denormalization",
+              "notes": "Normalize = no duplicate data, joins assemble views (saves space, hard to read efficiently). Denormalize = duplicate for read speed, must keep copies in sync. NoSQL often forces denormalization (no joins). Tradeoff: write complexity vs read speed."
+            },
+            {
+              "name": "Many-to-One and Many-to-Many Relationships",
+              "notes": "Critical for choosing between relational and document DBs. Document DBs handle one-to-many well via nesting but struggle with many-to-many (no joins). Relational handles via foreign keys and join tables. DDIA Ch 3."
+            },
+            {
+              "name": "Star and Snowflake Schemas",
+              "notes": "Data warehouse modeling. Star = one large fact table at center, denormalized dimension tables around it. Snowflake = star with dimensions further normalized. Kimball methodology. Used in BI: Snowflake DB, Redshift, BigQuery."
+            },
+            {
+              "name": "Graph Models",
+              "children": [
+                {
+                  "name": "Property Graphs",
+                  "notes": "Vertices and edges with arbitrary properties. Vertices have IDs, edges have type and direction. Better than relational for highly-connected data with arbitrary depth. Neo4j, Amazon Neptune."
+                },
+                {
+                  "name": "Triple Stores and SPARQL",
+                  "notes": "Subject-predicate-object triples. RDF format. Used in semantic web, Wikidata, knowledge graphs. SPARQL is the SQL-like query language for triple stores."
+                },
+                {
+                  "name": "Cypher Query Language",
+                  "notes": "Neo4j's pattern-matching query language. ASCII-art syntax for paths, e.g., (a)-[:KNOWS]->(b). Now standardized as openCypher across multiple graph DBs."
+                },
+                {
+                  "name": "Datalog",
+                  "notes": "Older logic-based query language with recursive queries. Influenced GraphQL and modern graph DB query languages. Used in Datomic."
+                },
+                {
+                  "name": "GraphQL",
+                  "notes": "API query language from Facebook (2015). Schema-driven, lets clients ask for exactly the fields they need. Solves over-fetching and under-fetching from REST. Not a graph DB despite the name; it is an API layer."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Storage Engines",
+          "children": [
+            {
+              "name": "Log-Structured Storage",
+              "notes": "Append-only writes, then merge or compact in background. SSTables plus memtable plus WAL. Sequential I/O is fast. Used by LSM-tree DBs (RocksDB, Cassandra, LevelDB, ScyllaDB). Write-optimized."
+            },
+            {
+              "name": "Page-Oriented Storage",
+              "notes": "Mutate fixed-size pages (typically 4KB or 8KB) in place. Used by B-tree DBs (Postgres, MySQL InnoDB, SQLite). Read-optimized, predictable space usage, supports MVCC and indexes well."
+            },
+            {
+              "name": "Column-Oriented Storage",
+              "notes": "Store all values for one column contiguously instead of one row contiguously. Massive compression (similar values clustered) and reads only needed columns. Used by analytical DBs: Snowflake, BigQuery, ClickHouse, Redshift. File format: Parquet, ORC. DDIA Ch 4."
+            },
+            {
+              "name": "In-Memory Databases",
+              "notes": "Keep working set in RAM. Examples: Redis, Memcached (cache); SAP HANA, MemSQL/SingleStore (full DBs). Faster than disk-backed; durability via WAL or periodic snapshots. Limited by RAM cost."
+            }
+          ]
+        },
+        {
+          "name": "Indexing",
+          "children": [
+            {
+              "name": "Indexing Fundamentals",
+              "notes": "Auxiliary data structure for fast lookups by some key. Tradeoff: speeds up reads, slows down writes (must update index), and consumes disk space. Choose indexes based on query patterns. Every index is a copy of the indexed columns."
+            },
+            {
+              "name": "B-trees and B+ trees",
+              "notes": "Self-balancing tree, default index in Postgres CREATE INDEX. MySQL InnoDB stores primary keys as clustered B-trees. O(log n) lookups and range queries. B+ trees only store data in leaves and link them for efficient range scans. Page-oriented, in-place updates."
+            },
+            {
+              "name": "LSM Tree",
+              "notes": "Log-Structured Merge tree. Memtable plus immutable SSTables on disk plus periodic compaction. Used by RocksDB, Cassandra, ScyllaDB, LevelDB, BigTable. Write-optimized: sequential writes only. Read amplification worse than B-trees due to multiple SSTable lookups."
+            },
+            {
+              "name": "Comparing B-Trees and LSM-Trees",
+              "notes": "B-trees: faster reads, predictable latency, mature, in-place updates. LSM: faster writes, better compression, no fragmentation. DDIA Ch 4 says LSM is advantageous for write-heavy workloads with sequential keys, B-trees for read-heavy with random updates."
+            },
+            {
+              "name": "Hash Indexes",
+              "notes": "Hashtable in memory pointing to disk offsets. Fast for equality lookups (O(1)), cannot do range queries, must fit in RAM. Used by Bitcask (Riak storage backend) and Redis."
+            },
+            {
+              "name": "Inverted Indexes",
+              "notes": "Maps terms to lists of documents containing them. Powers full-text search: Elasticsearch, Lucene, Solr. The 'inverted' part: instead of doc-to-terms mapping, store terms-to-docs mapping. Postings lists, term frequency."
+            },
+            {
+              "name": "Multicolumn Indexes",
+              "notes": "Index on multiple columns. Order matters: index on (a, b) helps WHERE a=? AND b=? but only partly helps WHERE b=? alone. Different from having multiple single-column indexes. Common pitfall in query tuning."
+            },
+            {
+              "name": "Secondary Indexes",
+              "notes": "Index that is not on the primary key. Multiple secondary indexes per table allowed. Common in relational DBs; some NoSQL DBs (DynamoDB, Cassandra) support but with caveats around consistency or partition layout."
+            },
+            {
+              "name": "Clustered vs Non-Clustered Indexes",
+              "notes": "Clustered: row data stored within the index leaves themselves (MySQL InnoDB primary key is always clustered). Non-clustered: index leaves point to row in heap (Postgres style by default). At most one clustered index per table. Affects range query performance."
+            }
+          ]
+        },
+        {
+          "name": "Transactions",
+          "children": [
+            {
+              "name": "Transaction Fundamentals",
+              "notes": "Group operations into atomic logical unit. Either all commit or all abort. Foundation of ACID. Most relational DBs support multi-statement transactions; some NoSQL DBs only single-row atomicity. DDIA Ch 8."
+            },
+            {
+              "name": "ACID Properties in Depth",
+              "notes": "Atomicity = all-or-nothing on commit/abort. Consistency = invariants preserved (largely the application's responsibility). Isolation = concurrent transactions do not see each other's intermediate state. Durability = committed data persists. DDIA notes the term 'ACID' is loosely defined across DBs."
+            },
+            {
+              "name": "Single-Object vs Multi-Object Operations",
+              "notes": "Single-object atomicity (single row update) is widely supported even in NoSQL. Multi-object transactions (across rows or tables) are rarer in NoSQL and often missing in distributed DBs. MongoDB added them in 4.0; DynamoDB added them in 2018."
+            },
+            {
+              "name": "Isolation Levels",
+              "children": [
+                {
+                  "name": "Read Uncommitted",
+                  "notes": "Weakest level. Allows dirty reads (seeing uncommitted data). Rarely used in practice."
+                },
+                {
+                  "name": "Read Committed",
+                  "notes": "No dirty reads, no dirty writes. Default in Postgres and Oracle. Allows non-repeatable reads (the same row read twice in one transaction may differ)."
+                },
+                {
+                  "name": "Repeatable Read",
+                  "notes": "Same row read returns same value within a transaction. MySQL InnoDB default. Often implemented via snapshot isolation in practice. SQL standard's definition is weaker than what most DBs deliver under this name."
+                },
+                {
+                  "name": "Snapshot Isolation",
+                  "notes": "Each transaction sees a consistent snapshot from its start time. Implemented via MVCC (multi-version concurrency control). Postgres SERIALIZABLE actually implements SSI on top of SI. Allows write skew, which Serializable does not."
+                },
+                {
+                  "name": "Serializable",
+                  "notes": "Strongest level. Result equivalent to some serial execution of the transactions. Three implementations: actual serial execution (Redis, VoltDB), Two-Phase Locking (MySQL Serializable), Serializable Snapshot Isolation (Postgres)."
+                }
+              ]
+            },
+            {
+              "name": "Concurrency Anomalies",
+              "children": [
+                {
+                  "name": "Dirty Reads",
+                  "notes": "Reading uncommitted data from another transaction. Prevented by Read Committed and above."
+                },
+                {
+                  "name": "Dirty Writes",
+                  "notes": "Overwriting another transaction's uncommitted write. Prevented by Read Committed and above."
+                },
+                {
+                  "name": "Lost Updates",
+                  "notes": "Two read-modify-write cycles overlap and one transaction's update is lost. Prevented by atomic operations (UPDATE x SET v=v+1), explicit row locking (SELECT FOR UPDATE), automatic detection (Postgres SI), or compare-and-swap."
+                },
+                {
+                  "name": "Write Skew",
+                  "notes": "Two transactions read overlapping data, decide based on what they read, then write to different rows, but each invalidates the other's premise. Classic example: doctor on-call check (both transactions see two doctors on call, both go off call). Prevented only by Serializable. DDIA Ch 8."
+                },
+                {
+                  "name": "Phantom Reads",
+                  "notes": "Read returns different rows when run again because another transaction inserted rows matching the predicate. Predicate locks or SSI prevent. Distinct from non-repeatable reads, which are about existing rows changing."
+                }
+              ]
+            },
+            {
+              "name": "Serializability Implementations",
+              "children": [
+                {
+                  "name": "Actual Serial Execution",
+                  "notes": "Run transactions one at a time on a single thread. Simple and fast on RAM-resident data with short transactions. Does not scale across cores. Used by Redis, VoltDB, Datomic."
+                },
+                {
+                  "name": "Two-Phase Locking",
+                  "notes": "Acquire shared locks for reads, exclusive locks for writes. Hold all locks until commit or abort. Strong but high contention and risk of deadlock. Default in MySQL Serializable mode."
+                },
+                {
+                  "name": "Serializable Snapshot Isolation",
+                  "notes": "Optimistic concurrency control: read from snapshot, detect serialization conflicts at commit time, abort if conflict found. Postgres SERIALIZABLE since 9.1. Lower contention than 2PL when conflicts are rare. DDIA Ch 8."
+                },
+                {
+                  "name": "Optimistic vs Pessimistic Concurrency Control",
+                  "notes": "Optimistic = assume no conflict, validate at commit time (SSI, MVCC). Pessimistic = lock upfront (2PL). Optimistic better when contention is low, pessimistic better when contention is high."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Replication",
+          "children": [
+            {
+              "name": "Data Replication Fundamentals",
+              "notes": "Keep copies of data on multiple machines. Goals: high availability, fault tolerance, lower latency (geographically near users), read scalability. Three modes: single-leader, multi-leader, leaderless."
+            },
+            {
+              "name": "Single-Leader Replication",
+              "notes": "One node accepts writes and replicates to followers. Used by Postgres, MySQL, MongoDB (replica sets), Kafka (per partition). Simple consistency model. Leader is bottleneck for writes and a SPOF (mitigated by automatic failover)."
+            },
+            {
+              "name": "Multi-Leader Replication",
+              "notes": "Multiple leaders accept writes and replicate to each other. Used for multi-region active-active and collaborative apps (Google Docs, mobile sync). Adds conflict resolution complexity. Rare in standard DBs (BDR for Postgres, Tungsten for MySQL)."
+            },
+            {
+              "name": "Leaderless Replication",
+              "notes": "Any replica accepts writes, clients send to multiple replicas. Quorum-based reads/writes. Used by Dynamo, Cassandra, Riak, ScyllaDB. Tolerates node failures gracefully but anti-entropy (read repair, hinted handoff) needed for convergence."
+            },
+            {
+              "name": "Synchronous vs Asynchronous Replication",
+              "notes": "Sync: leader waits for followers to confirm before acknowledging client. Strong durability, higher write latency, leader blocked if follower slow. Async: leader acks client immediately, faster but can lose recent writes on leader failure. Most setups use semi-sync (at least one follower must confirm)."
+            },
+            {
+              "name": "Read Replicas",
+              "notes": "Followers serve read traffic. Scales reads horizontally. Tradeoff: replication lag means reads can return stale data. Postgres streaming replication, MySQL read replicas, AWS Aurora Read Replicas."
+            },
+            {
+              "name": "Replication Lag",
+              "notes": "Delay between write on leader and visibility on follower. Ranges from milliseconds to hours under load. Causes consistency anomalies: read-your-writes violation, monotonic-reads violation, causality violation. DDIA Ch 6."
+            },
+            {
+              "name": "Replication Log Implementation",
+              "children": [
+                {
+                  "name": "Statement-Based Replication",
+                  "notes": "Replicate the SQL statement itself. Simple, but breaks for non-deterministic functions (NOW(), RAND()), auto-increment IDs, and triggers. Old MySQL default; mostly abandoned."
+                },
+                {
+                  "name": "Write-Ahead Log Shipping",
+                  "notes": "Replicate the WAL byte-by-byte. Postgres streaming replication uses this. Tightly coupled to storage format: replicas must run the same DB version as primary."
+                },
+                {
+                  "name": "Logical (Row-Based) Replication",
+                  "notes": "Replicate row changes (insert, update, delete) in a logical format decoupled from storage. MySQL row-based binlog, Postgres logical replication, CDC tools (Debezium). Allows version mismatches and selective replication. Foundation of CDC."
+                },
+                {
+                  "name": "Trigger-Based Replication",
+                  "notes": "Database triggers write changes to a separate table; replication tool reads from there. Flexible (can transform during replication) but high overhead. Older tools: Bucardo, Slony for Postgres."
+                }
+              ]
+            },
+            {
+              "name": "Conflict Resolution",
+              "children": [
+                {
+                  "name": "Last-Write-Wins",
+                  "notes": "Use timestamp to pick winner. Simple but loses data and depends on synchronized clocks. Cassandra default. Suitable when occasional data loss is acceptable."
+                },
+                {
+                  "name": "Conflict-Free Replicated Data Types (CRDTs)",
+                  "notes": "Data types whose merges are commutative, associative, and idempotent. Counters, sets, maps, sequences. Used in Riak, Redis, and collaborative editing libraries (Yjs, Automerge). Enables multi-leader without manual conflict resolution."
+                },
+                {
+                  "name": "Application-Level Conflict Resolution",
+                  "notes": "Application receives conflicting versions and decides how to merge. Examples: shopping carts (union of items), git merges. Pushes complexity up but most flexible. Riak's siblings."
+                }
+              ]
+            },
+            {
+              "name": "Detecting Concurrent Writes",
+              "notes": "Version vectors (vector clocks) attached to writes to detect concurrent vs causally-related operations. Different from clock-based ordering, which depends on synchronized time. Used in Dynamo and Riak."
+            },
+            {
+              "name": "Quorum Reads and Writes",
+              "notes": "R + W > N guarantees reads see latest write. Tunable: lower R/W = lower latency, higher = more consistency. From the Dynamo paper. Strict quorum has edge cases like sloppy quorums and hinted handoff."
+            }
+          ]
+        },
+        {
+          "name": "Partitioning",
+          "children": [
+            {
+              "name": "Data Partitioning Fundamentals",
+              "notes": "Split data across nodes for scale. Each piece is a partition or shard. Goal: distribute load and storage across machines. Term 'partitioning' is used in DDIA; 'sharding' is more common in NoSQL world. DDIA Ch 7."
+            },
+            {
+              "name": "Sharding",
+              "notes": "Same as partitioning, term used widely in NoSQL/MongoDB world. Each shard is effectively a smaller logical DB. Implementation: app-level (custom logic), middleware (Vitess, mongos), DB-native (Cassandra, DynamoDB)."
+            },
+            {
+              "name": "Multitenancy",
+              "notes": "Multiple tenants on same DB. Strategies: shared schema with tenant_id column (cheap, weak isolation), schema per tenant (medium), DB per tenant (strong isolation, expensive). Tradeoff: isolation vs operational cost."
+            },
+            {
+              "name": "Range Partitioning",
+              "notes": "Partition by key range, e.g., A-D on shard 1, E-H on shard 2. Efficient for range queries. Risk: hot ranges (e.g., recent timestamps all on one shard). Used by HBase, Bigtable."
+            },
+            {
+              "name": "Hash Partitioning",
+              "notes": "Hash the key, partition by hash value. Even distribution, but loses range query efficiency. Cassandra default, MongoDB hashed sharding, DynamoDB. Most common choice for KV-like workloads."
+            },
+            {
+              "name": "Consistent Hashing",
+              "notes": "Hash both keys and nodes onto a ring. Adding or removing nodes only remaps a fraction of keys (~1/N). Used by Dynamo, Cassandra, memcached client libraries. Virtual nodes (vnodes) improve balance and rebalancing. Alex Xu Ch 5."
+            },
+            {
+              "name": "Skewed Workloads and Hot Spots",
+              "notes": "Some keys or partitions get disproportionate load: celebrity users, viral content, recent timestamps. Mitigations: salt the hot key (append random suffix), secondary partitioning, separate cache for hot keys, application-level fanout."
+            },
+            {
+              "name": "Rebalancing Partitions",
+              "notes": "Adding or removing nodes. Strategies: fixed number of partitions (Riak, Couchbase default), dynamic partitioning (HBase splits when too big), partitions proportional to nodes (Cassandra). Avoid hash-mod-N because every node-count change remaps everything. DDIA Ch 7."
+            },
+            {
+              "name": "Request Routing",
+              "notes": "How does a client know which partition to query? Three approaches: any node forwards (Cassandra gossip), routing tier in front (MongoDB mongos, Vitess), client-aware (Kafka clients). ZooKeeper or etcd often track partition assignments."
+            },
+            {
+              "name": "Local vs Global Secondary Indexes",
+              "notes": "Local: each partition has its own secondary index over its data; queries on the indexed value require scatter-gather across partitions. Simpler but reads are expensive. Global: the secondary index itself is partitioned (by indexed value); reads are efficient but writes update two partitions. DynamoDB GSI vs LSI."
+            }
+          ]
+        },
+        {
+          "name": "Materialized Views",
+          "notes": "Precomputed query results stored as a table. Refreshed on a schedule or incrementally on writes. Trade write cost for read speed. Postgres MATERIALIZED VIEW (manual refresh), Oracle, Snowflake, BigQuery (auto)."
+        },
+        {
+          "name": "Query Optimization",
+          "notes": "Database rewrites SQL into efficient execution plan. Cost-based optimizer uses table statistics (row counts, value distributions). EXPLAIN ANALYZE to inspect. Common wins: appropriate indexes, avoiding N+1 queries, denormalization, partition pruning."
+        },
+        {
+          "name": "Connection Pooling",
+          "notes": "Reuse DB connections instead of opening per request. PgBouncer, HikariCP (Java), Django CONN_MAX_AGE. Connections are expensive: memory, auth handshake, file descriptors. Pool sizing is critical: too small causes contention, too large overwhelms the DB."
+        },
+        {
+          "name": "Change Data Capture",
+          "notes": "Stream of row-level changes from a DB to downstream consumers. Powers ETL, search index sync, cache invalidation, microservice decoupling. Implementations: Debezium (Postgres logical replication, MySQL binlog), DynamoDB Streams, MongoDB Change Streams. DDIA Ch 12."
+        },
+        {
+          "name": "Data Warehousing",
+          "notes": "Separate analytical DB optimized for OLAP. Loaded via ETL or CDC from operational DBs. Snowflake, BigQuery, Redshift, Databricks. Column-oriented storage, denormalized star/snowflake schemas. Optimized for scans across millions of rows."
+        }
+      ]
+    },
+    {
+      "name": "Specialized Databases",
+      "children": [
+        { "name": "Key-Value Stores" },
+        { "name": "Document Databases" },
+        { "name": "Wide-Column Stores" },
+        { "name": "Graph Databases" },
+        { "name": "Full-Text Search Engine" },
+        { "name": "Time Series Database" },
+        { "name": "Vector Database" }
+      ]
+    },
+    {
+      "name": "Storage",
+      "children": [
+        { "name": "Object Storage" },
+        { "name": "Distributed File Systems" },
+        { "name": "Block vs File vs Object Storage" },
+        { "name": "Data Compression" },
+        { "name": "Erasure Coding" }
+      ]
+    },
+    {
+      "name": "Encoding and Evolution",
+      "children": [
+        {
+          "name": "Encoding Formats",
+          "children": [
+            { "name": "Language-Specific Formats" },
+            { "name": "JSON, XML, and Binary Variants" },
+            { "name": "Protocol Buffers" },
+            { "name": "Avro" },
+            { "name": "Thrift" }
+          ]
+        },
+        { "name": "Schema Evolution" },
+        { "name": "Forward and Backward Compatibility" },
+        { "name": "Dataflow Through Databases" },
+        { "name": "Dataflow Through Services" },
+        { "name": "Durable Execution and Workflows" }
+      ]
+    },
+    {
+      "name": "Distributed Systems Theory",
+      "children": [
+        { "name": "CAP Theorem" },
+        { "name": "PACELC Theorem" },
+        {
+          "name": "Consistency Models",
+          "children": [
+            { "name": "Linearizability" },
+            { "name": "Sequential Consistency" },
+            { "name": "Causal Consistency" },
+            { "name": "Eventual Consistency" },
+            { "name": "Read-Your-Writes Consistency" },
+            { "name": "Monotonic Reads" }
+          ]
+        },
+        { "name": "Network Partitions" },
+        { "name": "Split-Brain Problem" },
+        {
+          "name": "Distributed Systems Failure Modes",
+          "children": [
+            { "name": "Partial Failures" },
+            { "name": "Unreliable Networks" },
+            { "name": "Process Pauses" },
+            { "name": "Byzantine Faults" },
+            { "name": "Fault Detection" },
+            { "name": "Timeouts and Unbounded Delays" }
+          ]
+        },
+        {
+          "name": "Time and Ordering",
+          "children": [
+            { "name": "Clock Synchronization Problem" },
+            { "name": "Monotonic vs Time-of-Day Clocks" },
+            { "name": "Logical Clocks" },
+            { "name": "Lamport Timestamps" },
+            { "name": "Vector Clocks" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Distributed Coordination",
+      "children": [
+        { "name": "Heartbeats" },
+        { "name": "Leader Election" },
+        { "name": "Consensus Algorithms" },
+        { "name": "Quorum" },
+        { "name": "Paxos Algorithm" },
+        { "name": "Raft Algorithm" },
+        { "name": "Gossip Protocol" },
+        { "name": "Service Discovery" },
+        { "name": "Distributed Locks and Leases" },
+        { "name": "Coordination Services (ZooKeeper, etcd)" }
+      ]
+    },
+    {
+      "name": "Distributed Transactions",
+      "children": [
+        { "name": "Distributed Transactions Fundamentals" },
+        { "name": "Two-Phase Commit" },
+        { "name": "Three-Phase Commit" },
+        { "name": "SAGA Pattern" },
+        { "name": "Outbox Pattern" },
+        {
+          "name": "Delivery Semantics",
+          "children": [
+            { "name": "At-Most-Once Delivery" },
+            { "name": "At-Least-Once Delivery" },
+            { "name": "Exactly-Once Delivery" },
+            { "name": "Idempotency" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Messaging and Streaming",
+      "children": [
+        { "name": "Message Queues" },
+        { "name": "Pub/Sub" },
+        { "name": "Log-Based Message Brokers (Kafka)" },
+        { "name": "Batch vs Stream Processing" },
+        { "name": "ETL Pipelines" },
+        { "name": "MapReduce" },
+        { "name": "Dataflow Engines (Spark, Flink)" },
+        { "name": "Event Time vs Processing Time" },
+        { "name": "Windowing" },
+        { "name": "Watermarks" },
+        { "name": "Stream Joins" }
+      ]
+    },
+    {
+      "name": "API Design",
+      "children": [
+        { "name": "API Design Principles" },
+        { "name": "REST APIs" },
+        { "name": "Rate Limiting" }
+      ]
+    },
+    {
+      "name": "Security and Auth",
+      "children": [
+        { "name": "Authentication vs Authorization" },
+        { "name": "Session-based vs Token-based Authentication" },
+        { "name": "OAuth, OAuth2, OpenID Connect" },
+        { "name": "JWT" },
+        { "name": "Single Sign-On" },
+        { "name": "Role-Based Access Control" },
+        { "name": "Security Secrets Management" }
+      ]
+    },
+    {
+      "name": "Resilience Patterns",
+      "children": [
+        { "name": "Circuit Breaker Pattern" },
+        { "name": "Bulkhead Pattern" },
+        { "name": "Strangler Fig Pattern" },
+        { "name": "Backend for Frontend" },
+        { "name": "Sidecar Pattern" },
+        { "name": "Service Mesh" }
+      ]
+    },
+    {
+      "name": "Observability",
+      "children": [
+        { "name": "Observability Fundamentals" },
+        { "name": "Logging" },
+        { "name": "Metrics" },
+        { "name": "Distributed Tracing" },
+        { "name": "Correlation IDs" }
+      ]
+    },
+    {
+      "name": "Architecture Patterns",
+      "children": [{ "name": "CQRS" }, { "name": "Event Sourcing" }]
+    },
+    {
+      "name": "Probabilistic and Specialized Data Structures",
+      "children": [
+        { "name": "Checksums" },
+        { "name": "Bloom Filter" },
+        { "name": "Merkle Tree" },
+        { "name": "HyperLogLog" }
+      ]
+    }
+  ]
+}
