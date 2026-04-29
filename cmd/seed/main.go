@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
-	// "github.com/codehia/goflash/internal/store"
 )
 
 var (
@@ -27,21 +26,15 @@ const (
 	ReasoningEffort = "medium"
 	Stream          = false
 	fakeUserPrompt  = `
-		Generate flashcards for the following hierarchy. For each leaf, fully
-		decompose the concept into its atomic ideas and generate one card per
-		atomic idea.
-		
-		Root: Caching
-		
-		Caching
-		  └── TTL
-		    Anchor: TTL (time-to-live) eviction associates each cache entry with
-		    an expiration timestamp. Once the timestamp passes, the entry is
-		    treated as invalid: either purged eagerly by a background sweeper or
-		    lazily on the next read. TTL is independent of access patterns, unlike
-		    LRU or LFU. Redis EXPIRE and SET with EX option. Memcached entries
-		    take an explicit TTL. CDN cache headers (Cache-Control: max-age)
-		    implement TTL at the HTTP layer.
+		Generate flashcards for this concept. Fully decompose it into atomic ideas and generate one card per atomic idea.
+		Use the tag and tag_path exactly as given - do not modify them or create new tags.
+
+		Concept: TTL
+		Tag path: ["Caching", "Cache Eviction Policies"]
+		Anchor: TTL (time-to-live) eviction associates each cache entry with an expiration timestamp. 
+			Once the timestamp passes, the entry is treated as invalid: either purged eagerly by a background sweeper or lazily on the next read.
+			TTL is independent of access patterns, unlike LRU or LFU. Redis EXPIRE and SET with EX option. Memcached entries take an explicit TTL.
+			CDN cache headers (Cache-Control: max-age) implement TTL at the HTTP layer.
 	`
 	assistantPrompt = `
 	{
@@ -200,17 +193,18 @@ func getRootNode(path string) (Node, error) {
 }
 
 func getLeafNodes(node Node, path string) []LeafNode {
-	if path == "" {
-		path = node.Name
-	} else {
-		path = path + " > " + node.Name
-	}
 	if len(node.Children) == 0 {
 		return []LeafNode{{Node: node, Path: path}}
 	}
+	var childPath string
+	if path == "" {
+		childPath = node.Name
+	} else {
+		childPath = path + " > " + node.Name
+	}
 	var leaves []LeafNode
 	for _, child := range node.Children {
-		leaves = append(leaves, getLeafNodes(child, path)...)
+		leaves = append(leaves, getLeafNodes(child, childPath)...)
 	}
 	return leaves
 }
@@ -254,7 +248,13 @@ func formatSubtrees(node Node) string {
 }
 
 func createUserMessage(leaf LeafNode) (message, error) {
-	content := fmt.Sprintf("Generate flashcards for this concept. Fully decompose it into atomic ideas and generate one card per atomic idea.\n\nConcept: %s\nTag path: %s\nAnchor: %s", leaf.Name, leaf.Path, leaf.Notes)
+	content := fmt.Sprintf(`
+		Generate flashcards for this concept. Fully decompose it into atomic ideas and generate one card per atomic idea. 
+		Use the tag and tag_path exactly as given - do not modify them or create new tags.
+		
+		Concept: %s
+		Tag path: %s
+		Anchor: %s`, leaf.Name, leaf.Path, leaf.Notes)
 	return newMessage(content, "user")
 }
 
