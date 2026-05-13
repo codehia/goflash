@@ -12,6 +12,10 @@ const (
 	Stream = false
 )
 
+type Topic struct {
+	Name string
+}
+
 type Node struct {
 	Name     string `json:"name"`
 	Notes    string `json:"notes,omitempty"`
