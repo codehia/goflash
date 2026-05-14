@@ -60,6 +60,11 @@ func (c Card) Validate() error {
 	return nil
 }
 
+type CardItem struct {
+	ID   *string
+	Card Card
+}
+
 type Response struct {
 	Tag     string   `json:"tag"`
 	TagPath []string `json:"tag_path"`
