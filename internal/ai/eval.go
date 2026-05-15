@@ -84,19 +84,19 @@ func createPayload(question, correctAnswer, userAnswer string) (types.RequestPay
 func makeRequest(payloadData types.RequestPayload, cfg types.Config) (types.EvalResult, error) {
 	responseBody, err := MakeRequest(payloadData, cfg)
 	if err != nil {
-		sugar.Errorw("request failed", "error", err)
+		// sugar.Errorw("request failed", "error", err)
 		return types.EvalResult{}, err
 	}
 	var response types.EvalResult
 
 	if err := json.Unmarshal(responseBody, &response); err != nil {
-		sugar.Errorw("marshalling failed, retrying", "error", err)
+		// sugar.Errorw("marshalling failed, retrying", "error", err)
 		// return makeRequest(payloadData, cfg)
 	}
 
 	err = response.Validate()
 	if err != nil {
-		sugar.Warnw("validation failed", "error", err, "response", string(responseBody))
+		// sugar.Warnw("validation failed", "error", err, "response", string(responseBody))
 		// return makeRequest(payloadData, cfg)
 	}
 	return response, nil
@@ -105,12 +105,12 @@ func makeRequest(payloadData types.RequestPayload, cfg types.Config) (types.Eval
 func Evaluate(question, correctAnswer, userAnswer string) (types.EvalResult, error) {
 	cfg, err := types.NewConfig()
 	if err != nil {
-		sugar.Errorw("config Creation failed", "error", err)
+		// sugar.Errorw("config Creation failed", "error", err)
 		os.Exit(1)
 	}
 	payloadData, err := createPayload(question, correctAnswer, userAnswer)
 	if err != nil {
-		sugar.Errorw("failed to create payload", "error", err)
+		// sugar.Errorw("failed to create payload", "error", err)
 	}
 	return makeRequest(payloadData, cfg)
 }
