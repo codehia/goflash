@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/codehia/goflash/internal/types"
+	// "github.com/codehia/goflash/internal/types"
 )
 
 // ── Color palette — Catppuccin Mocha ────────────────────────────────
@@ -37,8 +37,8 @@ var (
 	colorFaint = lipgloss.Color("#6c7086") // Overlay0
 
 	// Accents
-	colorPurple = lipgloss.Color("#cba6f7") // Mauve
-	colorTeal   = lipgloss.Color("#94e2d5") // Teal
+	colorFlamingo = lipgloss.Color("#f2cdcd") // Flamingo
+	colorSapphire = lipgloss.Color("#74c7ec") // Sapphire
 	colorAmber  = lipgloss.Color("#fab387") // Peach
 	colorGreen  = lipgloss.Color("#a6e3a1") // Green
 	colorRed    = lipgloss.Color("#f38ba8") // Red
@@ -51,7 +51,7 @@ var (
 	mutedStyle  = lipgloss.NewStyle().Foreground(colorMuted)
 	hintStyle   = lipgloss.NewStyle().Foreground(colorHint)
 	faintStyle  = lipgloss.NewStyle().Foreground(colorFaint)
-	purpleStyle = lipgloss.NewStyle().Foreground(colorPurple)
+	purpleStyle = lipgloss.NewStyle().Foreground(colorFlamingo)
 )
 
 // ── Pill (background only, single line) ─────────────────────────────
@@ -59,14 +59,50 @@ var (
 func makePill(text string, fg, bg color.Color) string {
 	return lipgloss.NewStyle().Foreground(fg).Background(bg).Padding(0, 1).Render(text)
 }
-func purplePill(text string) string { return makePill(text, colorPurple, colorSurface) }
-func tealPill(text string) string   { return makePill(text, colorTeal, colorSurface) }
+func purplePill(text string) string { return makePill(text, colorFlamingo, colorSurface) }
+func tealPill(text string) string   { return makePill(text, colorSapphire, colorSurface) }
+
+// ── styledBox ────────────────────────────────────────────────────────
+
+// styledBox returns a lipgloss.Style configured from p.
+
+func styledBox(p CardParams) lipgloss.Style {
+	s := lipgloss.NewStyle().Background(p.BgColor)
+	if p.BorderColor != nil {
+		s = s.Border(lipgloss.RoundedBorder()).BorderForeground(p.BorderColor)
+	}
+	if len(p.Padding) > 0 {
+		s = s.Padding(p.Padding...)
+	}
+	if len(p.Margins) > 0 {
+		s = s.Margin(p.Margins...)
+	}
+	return s
+}
+
+func centerCard(termW, termH int, card string) string {
+	return lipgloss.Place(termW, termH, lipgloss.Center, lipgloss.Center, card)
+}
+
+// ── Too small screen ────────────────────────────────────────────────
+
+func renderTooSmall(w, h int) string {
+	msg := lipgloss.JoinVertical(lipgloss.Center,
+		boldStyle.Render("terminal too small"),
+		mutedStyle.Render(fmt.Sprintf("current   %d × %d", w, h)),
+		mutedStyle.Render(fmt.Sprintf("required  %d × %d", cardWidth, cardHeight)),
+	)
+	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, msg)
+}
 
 // ── Outer box ───────────────────────────────────────────────────────
 
-// contentWidth is the inner text width of topic row boxes.
-// Derived from card inner width minus box overhead (border=2, padding=4, margin=2).
-const contentWidth = cardInnerW - 8 // = 70
+const (
+	cardInnerW   = cardWidth - 2
+	cardInnerH   = cardHeight - 2
+	contentWidth = cardWidth - 10
+	roundedBorderH = 2 // lipgloss.RoundedBorder adds 1 char left + 1 right
+)
 
 func borderedBox(borderColor color.Color) lipgloss.Style {
 	return lipgloss.NewStyle().
@@ -102,20 +138,20 @@ func leftRight(left, right string, width int) string {
 	return left + strings.Repeat(" ", gap) + right
 }
 
-func progressBar(current, total int) string {
+func progressBar(current, total, width int) string {
 	if total == 0 {
 		return ""
 	}
 	pct := float64(current) / float64(total)
-	barWidth := cardInnerW - 2 - len(fmt.Sprintf("%d / %d", current, total))
+	counter := fmt.Sprintf("%d / %d", current, total)
+	barWidth := width - len(counter) - 1
 	filled := int(pct * float64(barWidth))
 	if filled > barWidth {
 		filled = barWidth
 	}
 	filledStr := purpleStyle.Render(strings.Repeat("━", filled))
 	emptyStr := faintStyle.Render(strings.Repeat("━", barWidth-filled))
-	counter := purpleStyle.Render(fmt.Sprintf("%d / %d", current, total))
-	return filledStr + emptyStr + " " + counter
+	return filledStr + emptyStr + " " + purpleStyle.Render(counter)
 }
 
 func actionBar(pairs ...string) string {
@@ -130,53 +166,27 @@ func actionBar(pairs ...string) string {
 
 // ── Card (outer wrapper) ─────────────────────────────────────────────
 
-type CardParams struct {
-	TermW, TermH         int
-	BorderColor          color.Color
-	BgColor              color.Color
-	Header, Body, Footer string
-}
+func renderCard(width int, borderColor color.Color, header, body, footer lipgloss.Style) string {
+	outer := styledBox(CardParams{BorderColor: borderColor})
+	innerW := width - roundedBorderH
+	divider := faintStyle.Render(strings.Repeat("─", innerW))
 
-func renderCard(p CardParams) string {
-	hasHeader := strings.TrimSpace(p.Header) != ""
-	hasFooter := strings.TrimSpace(p.Footer) != ""
-
-	// body fills remaining height after header/footer/dividers
-	bh := cardInnerH
-	if hasHeader {
-		bh -= headerH + 1
-	}
-	if hasFooter {
-		bh -= footerH + 1
-	}
-
-	zone := func(content string, h int) string {
-		return lipgloss.NewStyle().
-			Width(cardInnerW).Height(h).
-			Background(p.BgColor).
-			Render(content)
-	}
-
-	divider := zone(faintStyle.Render(strings.Repeat("─", cardInnerW)), 1)
+	h := header.Width(innerW).String()
+	b := body.Width(innerW).String()
+	f := footer.Width(innerW).String()
 
 	var sections []string
-	if hasHeader {
-		sections = append(sections, zone(p.Header, headerH), divider)
+	if strings.TrimSpace(h) != "" {
+		sections = append(sections, h)
 	}
-	sections = append(sections, zone(p.Body, bh))
-	if hasFooter {
-		sections = append(sections, divider, zone(p.Footer, footerH))
+	if strings.TrimSpace(b) != "" {
+		sections = append(sections, divider, b)
+	}
+	if strings.TrimSpace(f) != "" {
+		sections = append(sections, divider, f)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
-
-	card := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(p.BorderColor).
-		Background(p.BgColor).
-		Render(content)
-
-	return lipgloss.Place(p.TermW, p.TermH, lipgloss.Center, lipgloss.Center, card)
+	return outer.Render(lipgloss.JoinVertical(lipgloss.Left, sections...))
 }
 
 // pillRows lays pills into rows that fit within maxW, padding each row to maxW.
@@ -204,46 +214,46 @@ func pillRows(pills []string, maxW int) string {
 		row := strings.Join(cur, " ")
 		rows = append(rows, row+strings.Repeat(" ", maxW-lipgloss.Width(row)))
 	}
-	return strings.Join(rows, "\n")
+	return strings.Join(rows, "\n\n")
 }
 
 // ── Topic row ───────────────────────────────────────────────────────
 
-func renderTopicRow(topic types.TopicSummary, selected bool) string {
-	cursor := faintStyle.Render("  ")
-	if selected {
-		cursor = purpleStyle.Render("▶ ")
-	}
-
-	const pillColW = 14
-	pill := purplePill(fmt.Sprintf("%d cards", topic.CardCount))
-	nameCol := lipgloss.NewStyle().Width(contentWidth - pillColW).MaxWidth(contentWidth - pillColW).Render(cursor + boldStyle.Render(topic.Name))
-	pillCol := lipgloss.NewStyle().Width(pillColW).Align(lipgloss.Right).Render(pill)
-	line1 := lipgloss.JoinHorizontal(lipgloss.Top, nameCol, pillCol)
-
-	var line2 string
-	if len(topic.Subtopics) > 0 {
-		var pills []string
-		for _, n := range topic.Subtopics {
-			pills = append(pills, tealPill(n))
-		}
-		if len(topic.Subtopics) > 4 {
-			pills = pills[:4]
-			pills = append(pills, hintStyle.Render(fmt.Sprintf("+%d more", len(topic.Subtopics)-4)))
-		}
-		line2 = pillRows(pills, contentWidth)
-	}
-
-	content := line1
-	if line2 != "" {
-		divider := faintStyle.Render(strings.Repeat("─", contentWidth))
-		content = lipgloss.JoinVertical(lipgloss.Left, line1, divider, line2)
-	}
-
-	bc := colorBorder
-	if selected {
-		bc = colorPurple
-	}
-	row := borderedBox(bc).Render(content)
-	return lipgloss.Place(cardInnerW, lipgloss.Height(row), lipgloss.Center, lipgloss.Top, row)
-}
+// func renderTopicRow(topic types.TopicSummary, selected bool) string {
+// 	cursor := faintStyle.Render("  ")
+// 	if selected {
+// 		cursor = purpleStyle.Render("▶ ")
+// 	}
+//
+// 	const pillColW = 14
+// 	pill := purplePill(fmt.Sprintf("%d cards", topic.CardCount))
+// 	nameCol := lipgloss.NewStyle().Width(contentWidth - pillColW).MaxWidth(contentWidth - pillColW).Render(cursor + boldStyle.Render(topic.Name))
+// 	pillCol := lipgloss.NewStyle().Width(pillColW).Align(lipgloss.Right).Render(pill)
+// 	line1 := lipgloss.JoinHorizontal(lipgloss.Top, nameCol, pillCol)
+//
+// 	var line2 string
+// 	if len(topic.Subtopics) > 0 {
+// 		var pills []string
+// 		for _, n := range topic.Subtopics {
+// 			pills = append(pills, tealPill(n))
+// 		}
+// 		if len(topic.Subtopics) > 4 {
+// 			pills = pills[:4]
+// 			pills = append(pills, hintStyle.Render(fmt.Sprintf("+%d more", len(topic.Subtopics)-4)))
+// 		}
+// 		line2 = pillRows(pills, contentWidth)
+// 	}
+//
+// 	content := line1
+// 	if line2 != "" {
+// 		divider := faintStyle.Render(strings.Repeat("─", contentWidth))
+// 		content = lipgloss.JoinVertical(lipgloss.Left, line1, divider, line2)
+// 	}
+//
+// 	bc := colorBorder
+// 	if selected {
+// 		bc = colorFlamingo
+// 	}
+// 	row := borderedBox(bc).Render(content)
+// 	return lipgloss.Place(cardInnerW, lipgloss.Height(row), lipgloss.Center, lipgloss.Top, row)
+// }

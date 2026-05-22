@@ -65,8 +65,8 @@ func doneBody(m RootModel) string {
 	}
 
 	boxes := lipgloss.JoinHorizontal(lipgloss.Top,
-		statBox(fmt.Sprintf("%d", seen), "cards seen", colorPurple),
-		statBox(fmt.Sprintf("%.1f", avg), "avg score", colorTeal),
+		statBox(fmt.Sprintf("%d", seen), "cards seen", colorFlamingo),
+		statBox(fmt.Sprintf("%.1f", avg), "avg score", colorSapphire),
 		statBox(fmt.Sprintf("%d", revisit), "to revisit", colorAmber),
 	)
 	boxesRow := lipgloss.NewStyle().Width(cardInnerW).Align(lipgloss.Center).Render(boxes)

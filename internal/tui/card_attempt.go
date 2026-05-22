@@ -41,14 +41,14 @@ func updateCardAttempt(msg tea.Msg, m RootModel) (tea.Model, tea.Cmd) {
 }
 
 func cardAttemptHeader(m RootModel) string {
-	return cardQuestionHeader(m)
+	return cardQuestionHeader(m).String()
 }
 
 func cardAttemptBody(m RootModel) string {
 	if m.cardIndex >= len(m.cards) {
 		return ""
 	}
-	box := borderedBox(colorPurple).Render(m.textarea.View())
+	box := borderedBox(colorFlamingo).Render(m.textarea.View())
 	centered := lipgloss.Place(cardInnerW, lipgloss.Height(box), lipgloss.Center, lipgloss.Top, box)
 	return "\n " + hintStyle.Render("your answer") +
 		"\n\n" + centered
