@@ -5,54 +5,15 @@ import (
 
 	ta "charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
-"github.com/codehia/goflash/internal/store"
-	"github.com/codehia/goflash/internal/types"
-)
-
-type TopicSummary = types.TopicSummary
-
-type Screen int
-
-const (
-	ScreenTopicList Screen = iota
-	ScreenCardQuestion
-	ScreenCardAttempt
-	ScreenEvalResult
-	ScreenDone
+	"charm.land/lipgloss/v2"
 )
 
 // Card dimensions — fixed, never resize with terminal.
 const (
 	cardWidth  = 80
 	cardHeight = 40
-	cardInnerW = cardWidth - 2  // 78: inner content width
-	cardInnerH = cardHeight - 2 // 38: inner content height
-	headerH = 3
-	footerH = 2
+	listBodyH  = cardHeight - 16 // outer border(2) + header(4) + footer(3) + dividers(2) + buffer(5)
 )
-
-type RootModel struct {
-	db            *sql.DB
-	currentScreen Screen
-	termWidth     int
-	termHeight    int
-	ready         bool
-	// topic list
-	topics          []types.TopicSummary
-	selectedTopicID *string
-	topicName       string
-	cursor          int
-	// cards
-	cards     []store.Card
-	cardIndex int
-	// attempt
-	textarea   ta.Model
-	userAnswer string
-	// eval
-	evalResult types.EvalResult
-	// session
-	sessionScores []int
-}
 
 func NewRootModel(db *sql.DB) RootModel {
 	return RootModel{db: db, currentScreen: ScreenTopicList}
@@ -62,26 +23,15 @@ func (m RootModel) Init() tea.Cmd {
 	return tea.Batch(initTopicList(m), func() tea.Msg { return tea.RequestWindowSize() })
 }
 
-type TopicSelectedMsg struct {
-	topicID   string
-	topicName string
-}
-
-type CardSelectedMsg struct {
-	cardID string
-}
-
-type EvalResultMsg struct {
-	result types.EvalResult
-	err    error
-}
-
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
 		m.ready = true
+		if len(m.topics) > 0 {
+			m.topicList.SetSize(cardWidth-roundedBorderH, listBodyH)
+		}
 		return m, nil
 
 	case TopicSelectedMsg:
@@ -130,69 +80,66 @@ func (m RootModel) View() tea.View {
 		return tea.NewView("")
 	}
 
-	out := renderCard(CardParams{
-		TermW:       m.termWidth,
-		TermH:       m.termHeight,
-		BorderColor: colorPurple,
-		BgColor:     colorBase,
-		Header:      screenHeader(m),
-		Body:        screenBody(m),
-		Footer:      screenFooter(m),
-	})
+	if m.termWidth < cardWidth || m.termHeight < cardHeight {
+		return tea.NewView(renderTooSmall(m.termWidth, m.termHeight))
+	}
+
+	out := centerCard(m.termWidth, m.termHeight,
+		renderCard(cardWidth, colorFlamingo,
+			screenHeader(m),
+			screenBody(m),
+			screenFooter(m)))
 	return tea.NewView(out)
 }
 
-// screenHeader dispatches to the active screen's header fn.
-func screenHeader(m RootModel) string {
+func screenHeader(m RootModel) lipgloss.Style {
 	switch m.currentScreen {
 	case ScreenTopicList:
 		return topicListHeader(m)
-	case ScreenCardQuestion:
-		return cardQuestionHeader(m)
-	case ScreenCardAttempt:
-		return cardAttemptHeader(m)
-	case ScreenEvalResult:
-		return evalResultHeader(m)
-	case ScreenDone:
-		return doneHeader(m)
+	// case ScreenCardQuestion:
+	// 	return cardQuestionHeader(m)
+	// case ScreenCardAttempt:
+	// 	return cardAttemptHeader(m)
+	// case ScreenEvalResult:
+	// 	return evalResultHeader(m)
+	// case ScreenDone:
+	// 	return doneHeader(m)
 	default:
-		return ""
+		return lipgloss.NewStyle()
 	}
 }
 
-// screenBody dispatches to the active screen's body fn.
-func screenBody(m RootModel) string {
+func screenBody(m RootModel) lipgloss.Style {
 	switch m.currentScreen {
 	case ScreenTopicList:
 		return topicListBody(m)
-	case ScreenCardQuestion:
-		return cardQuestionBody(m)
-	case ScreenCardAttempt:
-		return cardAttemptBody(m)
-	case ScreenEvalResult:
-		return evalResultBody(m)
-	case ScreenDone:
-		return doneBody(m)
+	// case ScreenCardQuestion:
+	// 	return cardQuestionBody(m)
+	// case ScreenCardAttempt:
+	// 	return cardAttemptBody(m)
+	// case ScreenEvalResult:
+	// 	return evalResultBody(m)
+	// case ScreenDone:
+	// 	return doneBody(m)
 	default:
-		return ""
+		return lipgloss.NewStyle()
 	}
 }
 
-// screenFooter dispatches to the active screen's footer fn.
-func screenFooter(m RootModel) string {
+func screenFooter(m RootModel) lipgloss.Style {
 	switch m.currentScreen {
 	case ScreenTopicList:
 		return topicListFooter(m)
-	case ScreenCardQuestion:
-		return cardQuestionFooter(m)
-	case ScreenCardAttempt:
-		return cardAttemptFooter(m)
-	case ScreenEvalResult:
-		return evalResultFooter(m)
-	case ScreenDone:
-		return doneFooter(m)
+	// case ScreenCardQuestion:
+	// 	return cardQuestionFooter(m)
+	// case ScreenCardAttempt:
+	// 	return cardAttemptFooter(m)
+	// case ScreenEvalResult:
+	// 	return evalResultFooter(m)
+	// case ScreenDone:
+	// 	return doneFooter(m)
 	default:
-		return ""
+		return lipgloss.NewStyle()
 	}
 }
 
