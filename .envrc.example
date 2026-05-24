@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+export DEEPSEEK_API_KEY=""
+export DEEPSEEK_BASE_URL="https://api.deepseek.com/chat/completions"
+
+# If you're using DIRENV
+
+# export DIRENV_WARN_TIMEOUT=20s
+# eval "$(devenv direnvrc)"
+# use devenv
