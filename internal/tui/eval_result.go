@@ -12,9 +12,12 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/codehia/goflash/internal/scheduler"
+	"github.com/codehia/goflash/internal/store"
 )
 
 func updateEvalResult(msg tea.Msg, m RootModel) (tea.Model, tea.Cmd) {
@@ -83,6 +86,31 @@ func evalResultBody(m RootModel) lipgloss.Style {
 
 func evalResultFooter(_ RootModel) lipgloss.Style {
 	return styledBox(CardParams{BgColor: colorBase, Padding: []int{1, 1}}).SetString(actionBar("n", "next card", "q", "quit"))
+}
+
+func saveAndSchedule(m RootModel) tea.Cmd {
+	return func() tea.Msg {
+		card := m.cards[m.cardIndex]
+		score := m.evalResult.Score
+
+		if _, err := store.SaveAttempt(m.db, *card.ID, score); err != nil {
+			return scheduleUpdatedMsg{err: err}
+		}
+
+		streaks, err := store.GetStreakLength(m.db, *card.ID)
+		if err != nil {
+			return scheduleUpdatedMsg{err: err}
+		}
+
+		sched := scheduler.GetCardSchedule(score, streaks[*card.ID], card.IntervalDays, card.EaseFactor)
+		dueDate := time.Now().Add(time.Duration(sched.IntervalDays) * 24 * time.Hour)
+
+		if err := store.UpdateSchedule(m.db, *card.ID, sched.EaseFactor, sched.IntervalDays, dueDate); err != nil {
+			return scheduleUpdatedMsg{err: err}
+		}
+
+		return scheduleUpdatedMsg{}
+	}
 }
 
 // scoreAccentColor returns a color matching the score (0–5).

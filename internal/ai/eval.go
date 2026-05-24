@@ -42,6 +42,9 @@ const (
                      then name anything missing.
                    - If the answer scores 2 or below, focus on the most important concept
                      that was missing or wrong.
+				   - Keep in mind, that the response given by you, will be directly shown to the candidate,
+					 so change your response tone and grammar accordingly.
+
 
                    OUTPUT RULES:
                    - Respond ONLY with valid JSON. No preamble, no markdown fences.

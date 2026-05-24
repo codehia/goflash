@@ -55,6 +55,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.evalResult = msg.result
 		m.sessionScores = append(m.sessionScores, msg.result.Score)
 		m.currentScreen = ScreenEvalResult
+		return m, saveAndSchedule(m)
+
+	case scheduleUpdatedMsg:
+		// TODO: surface error to user
 		return m, nil
 	}
 

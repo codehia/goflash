@@ -77,6 +77,10 @@ type EvalResultMsg struct {
 	err    error
 }
 
+type scheduleUpdatedMsg struct {
+	err error
+}
+
 // ── CardParams ───────────────────────────────────────────────────────
 
 type CardParams struct {

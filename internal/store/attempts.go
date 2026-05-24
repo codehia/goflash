@@ -3,7 +3,6 @@ package store
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/codehia/goflash/internal/db/model"
@@ -30,13 +29,12 @@ type Attempt struct {
 // }
 // tagID = *inserted.ID
 
-func SaveAttempt(db *sql.DB, cardID string, score int32) (*model.CardAttempts, error) {
-	attempt := model.CardAttempts{CardID: cardID, QualityScore: score}
+func SaveAttempt(db *sql.DB, cardID string, score int) (*model.CardAttempts, error) {
+	attempt := model.CardAttempts{CardID: cardID, QualityScore: int32(score)}
 	stmt := table.CardAttempts.INSERT(table.CardAttempts.CardID, table.CardAttempts.QualityScore).MODEL(attempt).RETURNING(table.CardAttempts.AllColumns)
 	var inserted model.CardAttempts
 	err := stmt.Query(db, &inserted)
 	if err != nil {
-		log.Fatalf("save Attempt to DB: insert attempt %q: %v", cardID, err)
 		return nil, err
 	}
 	return &inserted, nil
