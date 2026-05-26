@@ -130,4 +130,4 @@ go run main.go                          # start studying
 
 ## License
 
-MIT. See [LICENSE](https://opensource.org/licenses/MIT)
+MIT. See [LICENSE](LICENSE)
