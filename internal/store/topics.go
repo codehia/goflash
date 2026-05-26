@@ -118,24 +118,54 @@ func getCardCountsByRoot(db *sql.DB) (map[string]int, error) {
 	return counts, nil
 }
 
-// getSubtopicsByParent returns a map of parent_id → []subtopic_name.
-// Only direct children (one level deep) are included.
+// getSubtopicsByParent returns a map of root_tag_id → []all_descendant_names.
 func getSubtopicsByParent(db *sql.DB) (map[string][]string, error) {
-	var tags []model.Tags
+	topicTree := sqlite.CTE("topic_tree")
+	rootID := sqlite.StringColumn("root_id")
+	tagID := sqlite.StringColumn("tag_id")
+	tagName := sqlite.StringColumn("name")
 
-	stmt := sqlite.SELECT(table.Tags.Name, table.Tags.ParentID).
-		FROM(table.Tags).
-		WHERE(table.Tags.ParentID.IS_NOT_NULL()).
-		ORDER_BY(table.Tags.Name)
-	if err := stmt.Query(db, &tags); err != nil {
+	stmt := sqlite.WITH_RECURSIVE(
+		topicTree.AS(
+			sqlite.SELECT(
+				table.Tags.ID.AS("root_id"),
+				table.Tags.ID.AS("tag_id"),
+				table.Tags.Name.AS("name"),
+			).FROM(table.Tags).
+				WHERE(table.Tags.ParentID.IS_NULL()).
+				UNION_ALL(
+					sqlite.SELECT(
+						rootID.From(topicTree),
+						table.Tags.ID,
+						table.Tags.Name,
+					).FROM(
+						table.Tags.INNER_JOIN(
+							topicTree,
+							table.Tags.ParentID.EQ(tagID.From(topicTree)),
+						),
+					),
+				),
+		),
+	)(
+		sqlite.SELECT(
+			rootID.From(topicTree),
+			tagName.From(topicTree),
+		).FROM(topicTree).
+			WHERE(tagID.From(topicTree).NOT_EQ(rootID.From(topicTree))).
+			ORDER_BY(tagName.From(topicTree)),
+	)
+
+	var dest []struct {
+		RootID string
+		Name   string
+	}
+	if err := stmt.Query(db, &dest); err != nil {
 		return nil, err
 	}
 
 	m := make(map[string][]string)
-	for _, t := range tags {
-		if t.ParentID != nil {
-			m[*t.ParentID] = append(m[*t.ParentID], t.Name)
-		}
+	for _, r := range dest {
+		m[r.RootID] = append(m[r.RootID], r.Name)
 	}
 	return m, nil
 }
