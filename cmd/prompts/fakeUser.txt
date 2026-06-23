@@ -1,0 +1,10 @@
+Generate flashcards for this concept. Fully decompose it into atomic ideas and generate one card per atomic idea.
+Use the tag and tag_path exactly as given - do not modify them or create new tags.
+
+Concept: TTL
+Tag path: ["Caching", "Cache Eviction Policies"]
+Anchor: TTL (time-to-live) eviction associates each cache entry with an expiration timestamp. 
+	Once the timestamp passes, the entry is treated as invalid: either purged eagerly by a background sweeper or lazily on the next read.
+	TTL is independent of access patterns, unlike LRU or LFU. Redis EXPIRE and SET with EX option. Memcached entries take an explicit TTL.
+	CDN cache headers (Cache-Control: max-age) implement TTL at the HTTP layer.
+	
