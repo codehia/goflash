@@ -1,6 +1,7 @@
-package main
+package cmd
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,44 +14,14 @@ import (
 )
 
 var (
-	logger       = zap.Must(zap.NewDevelopment())
-	sugar        = logger.Sugar()
+	logger = zap.Must(zap.NewDevelopment())
+	sugar  = logger.Sugar()
+	//go:embed prompts/system.txt
 	systemPrompt string
-)
-
-const (
-	fakeUserPrompt = `
-		Generate flashcards for this concept. Fully decompose it into atomic ideas and generate one card per atomic idea.
-		Use the tag and tag_path exactly as given - do not modify them or create new tags.
-
-		Concept: TTL
-		Tag path: ["Caching", "Cache Eviction Policies"]
-		Anchor: TTL (time-to-live) eviction associates each cache entry with an expiration timestamp. 
-			Once the timestamp passes, the entry is treated as invalid: either purged eagerly by a background sweeper or lazily on the next read.
-			TTL is independent of access patterns, unlike LRU or LFU. Redis EXPIRE and SET with EX option. Memcached entries take an explicit TTL.
-			CDN cache headers (Cache-Control: max-age) implement TTL at the HTTP layer.
-	`
-	assistantPrompt = `
-	{
-	   "entries":[
-	    {"tag":"TTL","tag_path":["Caching","Cache Eviction Policies"],
-	   "cards":[ 
-		{"question":"What is TTL-based cache eviction and how does it work?",
-		 "answer":"TTL eviction associates each cache entry with an expiration timestamp. Once the timestamp passes the entry is invalid, purged either eagerly by a background sweeper or lazily on the next read. TTL is independent of access patterns unlike LRU or LFU, meaning a hot entry will still be evicted once it expires.",
-		 "examples":"Redis EXPIRE and SET with EX option. Memcached entries take an explicit TTL. CDN cache headers (Cache-Control: max-age) implement TTL at the HTTP layer.",
-		 "tradeoffs":"TTL is simple and predictable but evicts entries even when still hot, and keeps cold entries until they expire. Combine with LRU when both freshness and access patterns matter.",
-		 "card_type":"definition"}, 
-		{"question":"How does Redis implement TTL expiry internally?",
-		 "answer":"Redis uses two strategies combined. Lazy expiry: when a key is accessed Redis checks if it has expired and deletes it before returning. Active expiry: a periodic background job samples random keys with TTLs and deletes expired ones. This hybrid avoids scanning all keys while still reclaiming memory from unaccessed expired entries.","examples":"Redis commands: EXPIRE key seconds, PEXPIRE key milliseconds, TTL key to inspect remaining time.",
-		 "tradeoffs":"The sampling approach means expired but unaccessed keys can linger and consume memory. Under heavy expiry load the background job can cause latency spikes.",
-		 "card_type":"mechanism"}, 
-		{"question":"When would you choose TTL eviction over LRU?",
-		 "answer":"Use TTL when correctness depends on freshness: session tokens, rate limit counters, DNS records, or pricing data that must not be served stale. Also when downstream contracts dictate expiry via HTTP Cache-Control headers or CDN edge caches. Use LRU when the goal is keeping the working set in memory regardless of age and stale data is acceptable.",
-		 "examples":"Session stores in Redis use TTL matching the session lifetime. Rate limiters use short TTL windows (1s, 1m). Application data caches typically prefer LRU.",
-		 "tradeoffs":"","card_type":"tradeoff"}]}
-	   ]
-	}
-	`
+	//go:embed prompts/fakeUser.txt
+	fakeUserPrompt string
+	//go:embed prompts/assistant.txt
+	assistantPrompt string
 )
 
 type LeafNode struct {
@@ -217,14 +188,16 @@ func writeToResultJson(path string, results []types.Response) {
 	sugar.Infow("results written successfully", "path", path)
 }
 
-func main() {
+func Seed() {
 	defer logger.Sync() //nolint:errcheck
+	// CREATE CONFIG -> CAN DELETE
 	cfg, err := types.NewConfig()
 	if err != nil {
 		sugar.Errorw("config creation failed", "error", err)
 		os.Exit(1)
 	}
 
+	// READ SYSYEMPROMPT
 	systemPromptFileData, err := os.ReadFile("systemPrompt.txt")
 	if err != nil {
 		sugar.Errorw("failed to load the systemPrompt", "error", err)

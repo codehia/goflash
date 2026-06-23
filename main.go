@@ -1,12 +1,39 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	tea "charm.land/bubbletea/v2"
+	cmd "github.com/codehia/goflash/cmd"
 	"github.com/codehia/goflash/internal/store"
 	"github.com/codehia/goflash/internal/tui"
 )
+
+func runCommand(commandString *string) {
+	switch *commandString {
+	case "seed":
+		cmd.Seed()
+	case "import":
+		cmd.Import()
+	default:
+		log.Fatalf("invalid command %s. Only allowed seed and import", *commandString)
+	}
+}
+
+func runTUI() {
+	db, err := store.Open()
+	if err != nil {
+		log.Fatalf("failed to open store: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	tuiProgram := tea.NewProgram(tui.NewRootModel(db))
+	_, err = tuiProgram.Run()
+	if err != nil {
+		log.Fatalf("failed to run the tea new program: %v", err)
+	}
+}
 
 func main() {
 	/*
@@ -31,16 +58,12 @@ func main() {
 		3. Show Card -> Accept Answer -> AI eval -> show feedback -> sm2 update -> next card
 	*/
 
-	db, err := store.Open()
-	if err != nil {
-		log.Fatalf("failed to open store: %v", err)
-	}
-	defer db.Close() //nolint:errcheck
+	commandString := flag.String("cmd", "", "command to run (seed, import)")
+	flag.Parse()
 
-	tuiProgram := tea.NewProgram(tui.NewRootModel(db))
-	_, err = tuiProgram.Run()
-	if err != nil {
-		log.Fatalf("failed to run the tea new program: %v", err)
+	if *commandString != "" {
+		runCommand(commandString)
+	} else {
+		runTUI()
 	}
-
 }

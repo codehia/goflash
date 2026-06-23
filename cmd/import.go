@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"database/sql"
@@ -176,7 +176,7 @@ func saveCardsToDB(outputFilePath string, db *sql.DB) {
 	}
 }
 
-func main() {
+func Import() {
 	db, err := store.Open()
 	if err != nil {
 		log.Fatalf("failed to open store: %v", err)
