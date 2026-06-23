@@ -13,9 +13,9 @@ import (
 func runCommand(commandString *string) {
 	switch *commandString {
 	case "seed":
-		cmd.Seed()
+		cmd.FetchCards()
 	case "import":
-		cmd.Import()
+		cmd.StoreCards()
 	default:
 		log.Fatalf("invalid command %s. Only allowed seed and import", *commandString)
 	}

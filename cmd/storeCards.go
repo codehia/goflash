@@ -176,7 +176,7 @@ func saveCardsToDB(outputFilePath string, db *sql.DB) {
 	}
 }
 
-func Import() {
+func StoreCards() {
 	db, err := store.Open()
 	if err != nil {
 		log.Fatalf("failed to open store: %v", err)

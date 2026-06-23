@@ -3,6 +3,7 @@ package cmd
 import (
 	_ "embed"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"slices"
@@ -188,7 +189,7 @@ func writeToResultJson(path string, results []types.Response) {
 	sugar.Infow("results written successfully", "path", path)
 }
 
-func Seed() {
+func FetchCards() {
 	defer logger.Sync() //nolint:errcheck
 	// CREATE CONFIG -> CAN DELETE
 	cfg, err := types.NewConfig()
@@ -197,15 +198,8 @@ func Seed() {
 		os.Exit(1)
 	}
 
-	// READ SYSYEMPROMPT
-	systemPromptFileData, err := os.ReadFile("systemPrompt.txt")
-	if err != nil {
-		sugar.Errorw("failed to load the systemPrompt", "error", err)
-		os.Exit(1)
-	}
-	systemPrompt = string(systemPromptFileData)
-
-	children := os.Args[1:]
+	// REMOVE THIS CHILDREN LOGIC ENTIRELY.
+	children := flag.Args()
 
 	root, err := types.LoadNode("system-design-hierarchy.json")
 	if err != nil {
