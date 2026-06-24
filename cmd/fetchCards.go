@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"sync"
 
 	"github.com/codehia/goflash/internal/ai"
 	"github.com/codehia/goflash/internal/types"
@@ -43,6 +42,15 @@ type entriesWrapper struct {
 	Entries []types.Response `json:"entries"`
 }
 
+func (w entriesWrapper) Validate() error {
+	for _, entry := range w.Entries {
+		if err := entry.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func collectLeaves(node types.Node, path string) []Leaf {
 	if len(node.Children) == 0 {
 		return []Leaf{{Name: node.Name, Notes: node.Notes, ParentPath: path}}
@@ -68,57 +76,6 @@ func createUserMessage(leaf Leaf) string {
 		Concept: %s
 		Tag path: %s
 		Anchor: %s`, leaf.Name, leaf.ParentPath, leaf.Notes)
-}
-
-func createFakeUserMessage() (types.APIMessage, error) {
-	return types.NewMessage(fakeUserPrompt, "user")
-}
-
-func createAssistantMessage() (types.APIMessage, error) {
-	return types.NewMessage(assistantPrompt, "assistant")
-}
-
-func createSystemMessage() (types.APIMessage, error) {
-	return types.NewMessage(systemPrompt, "system")
-}
-
-func makeRequest(payloadData types.RequestPayload, cfg types.Config, results chan<- []types.Response, retry chan<- types.RequestPayload, wg *sync.WaitGroup) {
-	sugar.Infow("sending request", "model", payloadData.Model)
-
-	content, err := ai.MakeRequest(payloadData, cfg)
-	if err != nil {
-		sugar.Warnw("request failed, retrying", "error", err)
-		wg.Add(1)
-		retry <- payloadData
-		wg.Done()
-		return
-	}
-
-	responses, err := validateResponse(content)
-	if err != nil {
-		sugar.Warnw("validation failed, retrying", "error", err)
-		wg.Add(1)
-		retry <- payloadData
-		wg.Done()
-		return
-	}
-
-	sugar.Infow("request successful", "responses", len(responses))
-	results <- responses
-	wg.Done()
-}
-
-func validateResponse(content []byte) ([]types.Response, error) {
-	var wrapper entriesWrapper
-	if err := json.Unmarshal(content, &wrapper); err != nil {
-		return nil, err
-	}
-	for _, entry := range wrapper.Entries {
-		if err := entry.Validate(); err != nil {
-			return nil, err
-		}
-	}
-	return wrapper.Entries, nil
 }
 
 func writeToResultJson(path string, results []types.Response) {
@@ -176,6 +133,7 @@ func parseArgs(args []string) seedArgs {
 func FetchCards(args []string) {
 	defer logger.Sync() //nolint:errcheck
 
+	providerName := ai.GetProviderName()
 	model, err := ai.GetModel()
 	if err != nil {
 		sugar.Errorw("failed to get the model", "error", err)
@@ -197,17 +155,20 @@ func FetchCards(args []string) {
 
 	var collected []types.Response
 	for _, leaf := range leaves {
-		result, err := goai.GenerateObject[entriesWrapper](context.Background(), model,
+		result, err := ai.GenerateStructured[entriesWrapper](
+			context.Background(), model, providerName,
 			goai.WithSystem(systemPrompt),
 			goai.WithMessages(
 				goai.UserMessage(fakeUserPrompt),
 				goai.AssistantMessage(assistantPrompt),
 				goai.UserMessage(createUserMessage(leaf)),
-			), goai.WithMaxRetries(3))
+			), goai.WithMaxRetries(3),
+		)
 		if err != nil {
 			sugar.Warnw("request failed", "leaf", leaf.Name, "error", err)
 			continue
 		}
-		collected = append(collected, result.Object.Entries...)
+		collected = append(collected, result.Entries...)
 	}
+	writeToResultJson(parsedArgs.outputFile, collected)
 }

@@ -2,11 +2,14 @@ package ai
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 
 	"github.com/codehia/goflash/internal/types"
+	"github.com/zendev-sh/goai"
+	"github.com/zendev-sh/goai/provider"
 )
 
 func MakeRequest(payloadData types.RequestPayload, cfg types.Config) ([]byte, error) {
@@ -52,4 +55,30 @@ func MakeRequest(payloadData types.RequestPayload, cfg types.Config) ([]byte, er
 	}
 
 	return []byte(msg.Content), nil
+}
+
+type Validatable interface {
+	Validate() error
+}
+
+func GenerateStructured[T Validatable](ctx context.Context, model provider.LanguageModel, providerName string, opts ...goai.Option) (T, error) {
+	var zero T
+	switch providerName {
+	case "deepseek", "ollama":
+		opts = append(opts, goai.WithProviderOptions(map[string]any{"structuredOutputs": false}))
+	}
+	var err error
+	for range 3 {
+		r, e := goai.GenerateObject[T](ctx, model, opts...)
+		if e != nil {
+			err = e
+			continue
+		}
+		if e = r.Object.Validate(); e != nil {
+			err = e
+			continue
+		}
+		return r.Object, nil
+	}
+	return zero, err
 }
