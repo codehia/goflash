@@ -25,11 +25,16 @@ func NewModel(providerName string, modelName string) (provider.LanguageModel, er
 }
 
 func GetModel() (provider.LanguageModel, error) {
-	providerName, _ := utils.GetEnv("PROVIDER_NAME", "deepseek")
+	providerName := GetProviderName()
 	modelName, err := utils.GetEnv("MODEL_NAME")
 	if err != nil {
 		sugar.Errorw("Missing MODEL_NAME", "error", err)
 		return nil, fmt.Errorf("unknown model name: %s", modelName)
 	}
 	return NewModel(providerName, modelName)
+}
+
+func GetProviderName() string {
+	providerName, _ := utils.GetEnv("PROVIDER_NAME", "deepseek")
+	return providerName
 }
